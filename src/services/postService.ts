@@ -65,3 +65,33 @@ export async function deletePost(postId: string, userId: string) {
 
   if (error) throw error;
 }
+
+export async function toggleLike(postId: string, userId: string, isLiked: boolean) {
+  if (!userId) throw new Error("No user");
+
+  if (isLiked) {
+    // Unlike
+    const { error } = await supabase
+      .from("likes")
+      .delete()
+      .eq("post_id", postId)
+      .eq("user_id", userId);
+    if (error) throw error;
+  } else {
+    // Like
+    const { error } = await supabase
+      .from("likes")
+      .insert([{ post_id: postId, user_id: userId }]);
+    if (error) throw error;
+  }
+}
+
+// Fetch all posts the user liked
+export async function fetchLikesForPosts(userId: string) {
+  const { data, error } = await supabase
+    .from("likes")
+    .select("post_id, user_id")
+    .eq("user_id", userId);
+  if (error) throw error;
+  return data;
+}

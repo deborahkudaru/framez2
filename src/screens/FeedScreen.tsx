@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, Image, RefreshControl, ActivityIndicator, TouchableOpacity } from "react-native";
+import { View, Text, FlatList, Image, RefreshControl, ActivityIndicator } from "react-native";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { supabase } from "../lib/supabase";
@@ -15,59 +15,13 @@ export default function FeedScreen() {
     setRefreshing(true);
     const { data, error } = await supabase
       .from("posts")
-      .select(`
-        id, 
-        content, 
-        image_url, 
-        created_at, 
-        user_id, 
-        profiles(full_name),
-        likes:post_likes(count),
-        comments:post_comments(count)
-      `)
+      .select(`id, content, image_url, created_at, user_id, profiles(full_name)`)
       .order("created_at", { ascending: false });
 
     if (error) console.error("❌ fetch error:", error);
-    else {
-      const formattedPosts = (data || []).map(post => ({
-        ...post,
-        likeCount: post.likes?.[0]?.count || 0,
-        commentCount: post.comments?.[0]?.count || 0,
-        isLiked: false // You'll need to check this against current user's likes
-      }));
-      setPosts(formattedPosts);
-    }
+    else setPosts(data || []);
     setRefreshing(false);
     setLoading(false);
-  };
-
-  const handleLike = async (postId: string) => {
-    // Optimistic update
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { 
-            ...post, 
-            isLiked: !post.isLiked,
-            likeCount: post.isLiked ? post.likeCount - 1 : post.likeCount + 1
-          }
-        : post
-    ));
-
-    // TODO: Implement actual like/unlike logic with Supabase
-    // const { data: { user } } = await supabase.auth.getUser();
-    // if (user) {
-    //   const post = posts.find(p => p.id === postId);
-    //   if (post?.isLiked) {
-    //     await supabase.from("post_likes").delete().match({ post_id: postId, user_id: user.id });
-    //   } else {
-    //     await supabase.from("post_likes").insert({ post_id: postId, user_id: user.id });
-    //   }
-    // }
-  };
-
-  const handleComment = (postId: string) => {
-    // TODO: Navigate to comments screen or open comment modal
-    console.log("Comment on post:", postId);
   };
 
   useEffect(() => {
@@ -185,74 +139,15 @@ export default function FeedScreen() {
             />
           ) : null}
 
-          {/* Engagement Actions */}
+          {/* Post Footer - Optional engagement area */}
           <View style={{ 
             paddingHorizontal: 16, 
             paddingVertical: 12,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
             borderTopWidth: 1,
             borderTopColor: "#f3f4f6"
           }}>
-            {/* Like Button */}
-            <TouchableOpacity
-              onPress={() => handleLike(item.id)}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                paddingVertical: 8,
-                paddingHorizontal: 12,
-                borderRadius: 8,
-                backgroundColor: item.isLiked ? "#fef3f2" : "#f9fafb",
-                borderWidth: 1,
-                borderColor: item.isLiked ? "#fecaca" : "#e5e7eb",
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={{ fontSize: 16, marginRight: 6 }}>
-                {item.isLiked ? "❤️" : "🤍"}
-              </Text>
-              <Text style={{ 
-                fontSize: 14, 
-                fontWeight: "600",
-                color: item.isLiked ? "#ef4444" : "#6b7280"
-              }}>
-                {item.likeCount > 0 ? item.likeCount : "Like"}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Comment Button */}
-            <TouchableOpacity
-              onPress={() => handleComment(item.id)}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                paddingVertical: 8,
-                paddingHorizontal: 12,
-                borderRadius: 8,
-                backgroundColor: "#f9fafb",
-                borderWidth: 1,
-                borderColor: "#e5e7eb",
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={{ fontSize: 16, marginRight: 6 }}>💬</Text>
-              <Text style={{ 
-                fontSize: 14, 
-                fontWeight: "600",
-                color: "#6b7280"
-              }}>
-                {item.commentCount > 0 ? item.commentCount : "Comment"}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Spacer */}
-            <View style={{ flex: 1 }} />
-
-            {/* Timestamp */}
             <Text style={{ fontSize: 12, color: "#9ca3af" }}>
-              {dayjs(item.created_at).format("MMM D")}
+              {dayjs(item.created_at).format("MMM D, YYYY • h:mm A")}
             </Text>
           </View>
         </View>

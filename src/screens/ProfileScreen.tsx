@@ -101,166 +101,169 @@ export default function ProfileScreen() {
     <FlatList
       data={posts}
       keyExtractor={(item) => item.id}
-      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
+      style={{ flex: 1, backgroundColor: "#f9fafb" }}
       ListHeaderComponent={
         <View>
           {/* Profile Header Section */}
           <View
             style={{
-              backgroundColor: "#f9fafb",
-              paddingTop: 24,
+              backgroundColor: "#FFFFFF",
+              paddingTop: 60,
               paddingBottom: 32,
+              paddingHorizontal: 24,
               borderBottomWidth: 1,
               borderBottomColor: "#e5e7eb",
             }}
           >
-            <View style={{ paddingHorizontal: 24 }}>
-              {/* Avatar Circle */}
+            {/* Header with Avatar and Info */}
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 24 }}>
+              {/* Smaller Avatar */}
               <View
                 style={{
-                  width: 80,
-                  height: 80,
-                  borderRadius: 40,
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
                   backgroundColor: "#7c3aed",
                   justifyContent: "center",
                   alignItems: "center",
-                  marginBottom: 16,
+                  marginRight: 16,
                 }}
               >
                 <Text
-                  style={{ fontSize: 32, fontWeight: "700", color: "#FFFFFF" }}
+                  style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}
                 >
                   {profile?.full_name?.charAt(0).toUpperCase() || "U"}
                 </Text>
               </View>
 
               {/* Profile Info */}
-              <Text
-                style={{
-                  fontSize: 24,
-                  fontWeight: "700",
-                  color: "#1a1a1a",
-                  marginBottom: 4,
-                }}
-              >
-                {profile?.full_name || "User"}
-              </Text>
-              <Text
-                style={{
-                  fontSize: 15,
-                  color: "#6b7280",
-                  marginBottom: 20,
-                }}
-              >
-                {profile?.email}
-              </Text>
-
-              {/* Stats Row */}
-              <View
-                style={{
-                  flexDirection: "row",
-                  backgroundColor: "#FFFFFF",
-                  borderRadius: 12,
-                  padding: 16,
-                  marginBottom: 16,
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.05,
-                  shadowRadius: 3,
-                  elevation: 2,
-                }}
-              >
-                <View style={{ flex: 1, alignItems: "center" }}>
-                  <Text
-                    style={{
-                      fontSize: 20,
-                      fontWeight: "700",
-                      color: "#7c3aed",
-                    }}
-                  >
-                    {posts.length}
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      color: "#6b7280",
-                      marginTop: 2,
-                    }}
-                  >
-                    Posts
-                  </Text>
-                </View>
-                <View style={{ width: 1, backgroundColor: "#e5e7eb" }} />
-                <View style={{ flex: 1, alignItems: "center" }}>
-                  <Text
-                    style={{
-                      fontSize: 20,
-                      fontWeight: "700",
-                      color: "#1a1a1a",
-                    }}
-                  >
-                    {dayjs(profile?.created_at).format("MMM YYYY")}
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      color: "#6b7280",
-                      marginTop: 2,
-                    }}
-                  >
-                    Joined
-                  </Text>
-                </View>
-              </View>
-
-              {/* Logout Button */}
-              <TouchableOpacity
-                onPress={signOut}
-                style={{
-                  borderWidth: 1.5,
-                  borderColor: "#dc2626",
-                  padding: 14,
-                  borderRadius: 12,
-                  backgroundColor: "#FFFFFF",
-                }}
-                activeOpacity={0.7}
-              >
+              <View style={{ flex: 1 }}>
                 <Text
                   style={{
-                    textAlign: "center",
-                    color: "#dc2626",
-                    fontWeight: "600",
-                    fontSize: 15,
+                    fontSize: 22,
+                    fontWeight: "700",
+                    color: "#1a1a1a",
+                    marginBottom: 4,
                   }}
                 >
-                  Sign Out
+                  {profile?.full_name || "User"}
                 </Text>
-              </TouchableOpacity>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: "#6b7280",
+                  }}
+                >
+                  {profile?.email}
+                </Text>
+              </View>
             </View>
+
+            {/* Stats Row */}
+            <View
+              style={{
+                flexDirection: "row",
+                backgroundColor: "#f9fafb",
+                borderRadius: 12,
+                padding: 20,
+                marginBottom: 20,
+                borderWidth: 1,
+                borderColor: "#e5e7eb",
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 24,
+                    fontWeight: "700",
+                    color: "#1a1a1a",
+                    marginBottom: 4,
+                  }}
+                >
+                  {posts.length}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: "#6b7280",
+                    fontWeight: "500",
+                  }}
+                >
+                  Total Posts
+                </Text>
+              </View>
+              
+              <View style={{ width: 1, backgroundColor: "#e5e7eb", marginHorizontal: 20 }} />
+              
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 24,
+                    fontWeight: "700",
+                    color: "#1a1a1a",
+                    marginBottom: 4,
+                  }}
+                >
+                  {dayjs(profile?.created_at).format("MMM 'YY")}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: "#6b7280",
+                    fontWeight: "500",
+                  }}
+                >
+                  Member Since
+                </Text>
+              </View>
+            </View>
+
+            {/* Logout Button */}
+            <TouchableOpacity
+              onPress={signOut}
+              style={{
+                borderWidth: 1.5,
+                borderColor: "#e5e7eb",
+                padding: 16,
+                borderRadius: 12,
+                backgroundColor: "#FFFFFF",
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={{
+                  textAlign: "center",
+                  color: "#6b7280",
+                  fontWeight: "600",
+                  fontSize: 15,
+                }}
+              >
+                Sign Out
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* My Posts Section Header */}
           <View
             style={{
               paddingHorizontal: 24,
-              paddingTop: 24,
+              paddingTop: 32,
               paddingBottom: 16,
-              backgroundColor: "#FFFFFF",
+              backgroundColor: "#f9fafb",
             }}
           >
-            <Text style={{ fontSize: 20, fontWeight: "700", color: "#1a1a1a" }}>
+            <Text style={{ fontSize: 20, fontWeight: "700", color: "#1a1a1a", marginBottom: 4 }}>
               My Posts
             </Text>
             <Text
               style={{
                 fontSize: 14,
                 color: "#6b7280",
-                marginTop: 4,
               }}
             >
               {posts.length === 0
                 ? "No posts yet"
-                : `${posts.length} ${posts.length === 1 ? "post" : "posts"}`}
+                : `${posts.length} ${posts.length === 1 ? "post" : "posts"} published`}
             </Text>
           </View>
         </View>
@@ -270,10 +273,8 @@ export default function ProfileScreen() {
         <View
           style={{
             backgroundColor: "#FFFFFF",
-            borderWidth: 1,
-            borderColor: "#e5e7eb",
             borderRadius: 16,
-            marginHorizontal: 24,
+            marginHorizontal: 16,
             marginBottom: 16,
             overflow: "hidden",
             shadowColor: "#000",
@@ -287,7 +288,7 @@ export default function ProfileScreen() {
           <View
             style={{
               padding: 16,
-              borderBottomWidth: 1,
+              borderBottomWidth: item.content || item.image_url ? 1 : 0,
               borderBottomColor: "#f3f4f6",
               flexDirection: "row",
               justifyContent: "space-between",
@@ -295,7 +296,7 @@ export default function ProfileScreen() {
             }}
           >
             <Text style={{ fontSize: 13, color: "#9ca3af", fontWeight: "500" }}>
-              {dayjs(item.created_at).format("MMM D, YYYY • h:mm A")}
+              {dayjs(item.created_at).format("MMM D, YYYY")}
             </Text>
 
             {/* Delete Button */}
@@ -303,7 +304,7 @@ export default function ProfileScreen() {
               onPress={() => {
                 Alert.alert(
                   "Delete Post",
-                  "Are you sure you want to delete this post?",
+                  "Are you sure you want to delete this post? This action cannot be undone.",
                   [
                     { text: "Cancel", style: "cancel" },
                     {
@@ -317,7 +318,7 @@ export default function ProfileScreen() {
                           setPosts((prev) =>
                             prev.filter((p) => p.id !== item.id)
                           );
-                          Alert.alert("Deleted", "Your post has been removed.");
+                          Alert.alert("Success", "Post deleted successfully");
                         } catch (err: any) {
                           Alert.alert(
                             "Error",
@@ -330,15 +331,18 @@ export default function ProfileScreen() {
                 );
               }}
               style={{
-                backgroundColor: "#ef4444",
                 paddingHorizontal: 12,
                 paddingVertical: 6,
                 borderRadius: 8,
+                borderWidth: 1,
+                borderColor: "#fecaca",
+                backgroundColor: "#fef2f2",
               }}
+              activeOpacity={0.7}
             >
               <Text
                 style={{
-                  color: "#fff",
+                  color: "#dc2626",
                   fontWeight: "600",
                   fontSize: 13,
                 }}
@@ -369,7 +373,7 @@ export default function ProfileScreen() {
               source={{ uri: item.image_url }}
               style={{
                 width: "100%",
-                height: 280,
+                height: 300,
                 backgroundColor: "#f3f4f6",
               }}
               resizeMode="cover"
@@ -381,42 +385,42 @@ export default function ProfileScreen() {
         <View
           style={{
             alignItems: "center",
-            paddingVertical: 48,
+            paddingVertical: 64,
             paddingHorizontal: 24,
           }}
         >
           <View
             style={{
-              width: 64,
-              height: 64,
-              borderRadius: 32,
+              width: 80,
+              height: 80,
+              borderRadius: 40,
               backgroundColor: "#f3f4f6",
               justifyContent: "center",
               alignItems: "center",
-              marginBottom: 16,
+              marginBottom: 20,
             }}
           >
-            <Text style={{ fontSize: 28 }}>📝</Text>
+            <Text style={{ fontSize: 36 }}>📝</Text>
           </View>
           <Text
             style={{
-              fontSize: 17,
-              fontWeight: "600",
+              fontSize: 20,
+              fontWeight: "700",
               color: "#1a1a1a",
-              marginBottom: 6,
+              marginBottom: 8,
             }}
           >
             No posts yet
           </Text>
           <Text
             style={{
-              fontSize: 14,
+              fontSize: 15,
               color: "#6b7280",
               textAlign: "center",
-              lineHeight: 20,
+              lineHeight: 22,
             }}
           >
-            Start sharing your moments with Framez
+            Share your first moment with the community
           </Text>
         </View>
       }

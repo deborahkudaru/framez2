@@ -1,297 +1,307 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, Image, RefreshControl, ActivityIndicator, TouchableOpacity } from "react-native";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
+import React, { useState } from "react";
+import {
+  View,
+  TextInput,
+  Text,
+  TouchableOpacity,
+  Image,
+  Alert,
+  ScrollView,
+  ActivityIndicator,
+} from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { useAuth } from "../context/AuthContext";
+import { createPost } from "../services/postService";
+import { uploadImageAsync } from "../utils/upload";
 import { supabase } from "../lib/supabase";
 
-dayjs.extend(relativeTime);
+export default function CreatePostScreen() {
+  const { user } = useAuth();
+  const [content, setContent] = useState("");
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-export default function FeedScreen() {
-  const [posts, setPosts] = useState<any[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  const fetchPosts = async () => {
-    setRefreshing(true);
-    const { data, error } = await supabase
-      .from("posts")
-      .select(`
-        id, 
-        content, 
-        image_url, 
-        created_at, 
-        user_id, 
-        profiles(full_name),
-        likes:post_likes(count),
-        comments:post_comments(count)
-      `)
-      .order("created_at", { ascending: false });
-
-    if (error) console.error("❌ fetch error:", error);
-    else {
-      const formattedPosts = (data || []).map(post => ({
-        ...post,
-        likeCount: post.likes?.[0]?.count || 0,
-        commentCount: post.comments?.[0]?.count || 0,
-        isLiked: false // You'll need to check this against current user's likes
-      }));
-      setPosts(formattedPosts);
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Required",
+        "Please allow photo library access to upload images.",
+        [{ text: "OK", style: "default" }]
+      );
+      return;
     }
-    setRefreshing(false);
-    setLoading(false);
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+      allowsEditing: true,
+      aspect: [4, 3],
+    });
+
+    if (!result.canceled) {
+      setImageUri(result.assets[0].uri);
+    }
   };
 
-  const handleLike = async (postId: string) => {
-    // Optimistic update
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { 
-            ...post, 
-            isLiked: !post.isLiked,
-            likeCount: post.isLiked ? post.likeCount - 1 : post.likeCount + 1
-          }
-        : post
-    ));
-
-    // TODO: Implement actual like/unlike logic with Supabase
-    // const { data: { user } } = await supabase.auth.getUser();
-    // if (user) {
-    //   const post = posts.find(p => p.id === postId);
-    //   if (post?.isLiked) {
-    //     await supabase.from("post_likes").delete().match({ post_id: postId, user_id: user.id });
-    //   } else {
-    //     await supabase.from("post_likes").insert({ post_id: postId, user_id: user.id });
-    //   }
-    // }
+  const removeImage = () => {
+    setImageUri(null);
   };
 
-  const handleComment = (postId: string) => {
-    // TODO: Navigate to comments screen or open comment modal
-    console.log("Comment on post:", postId);
+  const onPost = async () => {
+    if (!user) {
+      Alert.alert("Not Logged In", "Please log in to create a post.");
+      return;
+    }
+
+    if (!content.trim() && !imageUri) {
+      Alert.alert("Empty Post", "Please add some content or an image.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // get the currently authenticated user from supabase directly
+      const { data: authData } = await supabase.auth.getUser();
+      const loggedInUser = authData?.user;
+
+      console.log("👤 Logged-in user:", loggedInUser?.id);
+
+      if (!loggedInUser) {
+        throw new Error("No authenticated user found");
+      }
+
+      let imageUrl: string | null = null;
+
+      if (imageUri) {
+        imageUrl = await uploadImageAsync(imageUri, "posts", loggedInUser.id);
+      }
+
+      const { data: authCheck } = await supabase.auth.getUser();
+      console.log("👤 Current user before insert:", authCheck?.user?.id);
+
+      const result = await createPost(
+        loggedInUser.id,
+        content.trim() || null,
+        imageUrl
+      );
+      console.log("✅ Insert result:", result);
+
+      setContent("");
+      setImageUri(null);
+      Alert.alert("Success", "Your post has been published!", [
+        { text: "OK", style: "default" },
+      ]);
+    } catch (e: any) {
+      Alert.alert(
+        "Error",
+        e.message || "Could not create post. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
-
-  useEffect(() => {
-    fetchPosts();
-  }, []);
-
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FFFFFF" }}>
-        <ActivityIndicator size="large" color="#7c3aed" />
-        <Text style={{ marginTop: 12, fontSize: 15, color: "#6b7280" }}>Loading feed...</Text>
-      </View>
-    );
-  }
 
   return (
-    <FlatList
-      data={posts}
-      keyExtractor={(item) => item.id}
-      style={{ flex: 1, backgroundColor: "#f9fafb" }}
-      refreshControl={
-        <RefreshControl 
-          refreshing={refreshing} 
-          onRefresh={fetchPosts}
-          tintColor="#7c3aed"
-          colors={["#7c3aed"]}
-        />
-      }
-      ListHeaderComponent={
-        <View style={{ 
-          paddingHorizontal: 24, 
-          paddingTop: 20, 
-          paddingBottom: 16,
-          backgroundColor: "#FFFFFF",
+    <ScrollView
+      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
+      contentContainerStyle={{ paddingBottom: 40 }}
+    >
+      {/* Header */}
+      <View
+        style={{
+          paddingHorizontal: 24,
+          paddingTop: 60,
+          paddingBottom: 24,
           borderBottomWidth: 1,
-          borderBottomColor: "#e5e7eb"
-        }}>
-          <Text style={{ fontSize: 28, fontWeight: "700", color: "#1a1a1a" }}>
-            Feed
+          borderBottomColor: "#e5e7eb",
+        }}
+      >
+        <Text style={{ fontSize: 28, fontWeight: "700", color: "#1a1a1a" }}>
+          Create Post
+        </Text>
+        <Text style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>
+          Share your moment with the community
+        </Text>
+      </View>
+
+      <View style={{ paddingHorizontal: 24, paddingTop: 32, gap: 24 }}>
+        {/* Text Input Section */}
+        <View>
+          <Text
+            style={{
+              fontSize: 14,
+              fontWeight: "600",
+              color: "#374151",
+              marginBottom: 10,
+            }}
+          >
+            What's on your mind?
           </Text>
-          <Text style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>
-            Latest posts from the community
+          <TextInput
+            placeholder="Share your thoughts..."
+            placeholderTextColor="#9ca3af"
+            value={content}
+            onChangeText={setContent}
+            multiline
+            textAlignVertical="top"
+            style={{
+              borderWidth: 1.5,
+              borderColor: "#e5e7eb",
+              borderRadius: 12,
+              padding: 16,
+              minHeight: 160,
+              fontSize: 15,
+              color: "#1a1a1a",
+              backgroundColor: "#FFFFFF",
+            }}
+          />
+          <Text style={{ fontSize: 12, color: "#9ca3af", marginTop: 8 }}>
+            {content.length} characters
           </Text>
         </View>
-      }
-      contentContainerStyle={{ paddingTop: 16, paddingBottom: 32 }}
-      renderItem={({ item }) => (
-        <View
-          style={{
-            backgroundColor: "#FFFFFF",
-            borderRadius: 16,
-            marginHorizontal: 16,
-            marginBottom: 16,
-            overflow: "hidden",
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.06,
-            shadowRadius: 4,
-            elevation: 2,
-          }}
-        >
-          {/* Post Header */}
-          <View style={{ 
-            padding: 16, 
-            flexDirection: "row", 
-            alignItems: "center",
-            borderBottomWidth: item.content || item.image_url ? 1 : 0,
-            borderBottomColor: "#f3f4f6"
-          }}>
-            {/* Avatar */}
-            <View style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: "#7c3aed",
-              justifyContent: "center",
-              alignItems: "center",
-              marginRight: 12,
-            }}>
-              <Text style={{ fontSize: 16, fontWeight: "600", color: "#FFFFFF" }}>
-                {item.profiles?.full_name?.charAt(0).toUpperCase() || "U"}
-              </Text>
-            </View>
 
-            {/* User Info & Timestamp */}
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, fontWeight: "600", color: "#1a1a1a" }}>
-                {item.profiles?.full_name || "Anonymous"}
-              </Text>
-              <Text style={{ fontSize: 13, color: "#9ca3af", marginTop: 2 }}>
-                {dayjs(item.created_at).fromNow()}
-              </Text>
-            </View>
-          </View>
-
-          {/* Post Content */}
-          {item.content ? (
-            <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: item.image_url ? 12 : 16 }}>
-              <Text style={{ fontSize: 15, color: "#1a1a1a", lineHeight: 22 }}>
-                {item.content}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* Post Image */}
-          {item.image_url ? (
-            <Image
-              source={{ uri: item.image_url }}
-              style={{ 
-                width: "100%", 
-                height: 320,
-                backgroundColor: "#f3f4f6"
-              }}
-              resizeMode="cover"
-            />
-          ) : null}
-
-          {/* Engagement Actions */}
-          <View style={{ 
-            paddingHorizontal: 16, 
-            paddingVertical: 12,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
-            borderTopWidth: 1,
-            borderTopColor: "#f3f4f6"
-          }}>
-            {/* Like Button */}
-            <TouchableOpacity
-              onPress={() => handleLike(item.id)}
+        {/* Image Preview */}
+        {imageUri ? (
+          <View>
+            <Text
               style={{
-                flexDirection: "row",
-                alignItems: "center",
-                paddingVertical: 8,
-                paddingHorizontal: 12,
-                borderRadius: 8,
-                backgroundColor: item.isLiked ? "#fef3f2" : "#f9fafb",
-                borderWidth: 1,
-                borderColor: item.isLiked ? "#fecaca" : "#e5e7eb",
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={{ fontSize: 16, marginRight: 6 }}>
-                {item.isLiked ? "❤️" : "🤍"}
-              </Text>
-              <Text style={{ 
-                fontSize: 14, 
+                fontSize: 14,
                 fontWeight: "600",
-                color: item.isLiked ? "#ef4444" : "#6b7280"
-              }}>
-                {item.likeCount > 0 ? item.likeCount : "Like"}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Comment Button */}
-            <TouchableOpacity
-              onPress={() => handleComment(item.id)}
+                color: "#374151",
+                marginBottom: 10,
+              }}
+            >
+              Image Preview
+            </Text>
+            <View
               style={{
-                flexDirection: "row",
-                alignItems: "center",
-                paddingVertical: 8,
-                paddingHorizontal: 12,
-                borderRadius: 8,
-                backgroundColor: "#f9fafb",
-                borderWidth: 1,
+                borderRadius: 12,
+                overflow: "hidden",
+                borderWidth: 1.5,
                 borderColor: "#e5e7eb",
               }}
-              activeOpacity={0.7}
             >
-              <Text style={{ fontSize: 16, marginRight: 6 }}>💬</Text>
-              <Text style={{ 
-                fontSize: 14, 
-                fontWeight: "600",
-                color: "#6b7280"
-              }}>
-                {item.commentCount > 0 ? item.commentCount : "Comment"}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Spacer */}
-            <View style={{ flex: 1 }} />
-
-            {/* Timestamp */}
-            <Text style={{ fontSize: 12, color: "#9ca3af" }}>
-              {dayjs(item.created_at).format("MMM D")}
-            </Text>
+              <Image
+                source={{ uri: imageUri }}
+                style={{
+                  width: "100%",
+                  height: 300,
+                  backgroundColor: "#f3f4f6",
+                }}
+                resizeMode="cover"
+              />
+              {/* Remove Image Button */}
+              <TouchableOpacity
+                onPress={removeImage}
+                style={{
+                  position: "absolute",
+                  top: 12,
+                  right: 12,
+                  backgroundColor: "rgba(0, 0, 0, 0.7)",
+                  borderRadius: 20,
+                  width: 36,
+                  height: 36,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "600" }}
+                >
+                  ×
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      )}
-      ListEmptyComponent={
-        <View style={{ 
-          alignItems: "center", 
-          paddingVertical: 64,
-          paddingHorizontal: 24 
-        }}>
-          <View style={{
-            width: 80,
-            height: 80,
-            borderRadius: 40,
-            backgroundColor: "#f3f4f6",
-            justifyContent: "center",
+        ) : null}
+
+        {/* Add/Change Image Button */}
+        <TouchableOpacity
+          onPress={pickImage}
+          style={{
+            padding: 16,
+            borderWidth: 1.5,
+            borderColor: "#7c3aed",
+            borderRadius: 12,
+            backgroundColor: "#faf5ff",
+            flexDirection: "row",
             alignItems: "center",
-            marginBottom: 20
-          }}>
-            <Text style={{ fontSize: 36 }}>📱</Text>
-          </View>
-          <Text style={{ 
-            fontSize: 20, 
-            fontWeight: "700", 
-            color: "#1a1a1a",
-            marginBottom: 8 
-          }}>
-            No posts yet
+            justifyContent: "center",
+            gap: 8,
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={{ fontSize: 20 }}>📷</Text>
+          <Text
+            style={{
+              textAlign: "center",
+              color: "#7c3aed",
+              fontWeight: "600",
+              fontSize: 15,
+            }}
+          >
+            {imageUri ? "Change Image" : "Add Image"}
           </Text>
-          <Text style={{ 
-            fontSize: 15, 
-            color: "#6b7280", 
-            textAlign: "center",
-            lineHeight: 22 
-          }}>
-            Be the first to share something{"\n"}with the Framez community
-          </Text>
-        </View>
-      }
-    />
+        </TouchableOpacity>
+
+        {/* Post Button */}
+        <TouchableOpacity
+          onPress={onPost}
+          disabled={loading || (!content.trim() && !imageUri)}
+          style={{
+            padding: 18,
+            backgroundColor:
+              loading || (!content.trim() && !imageUri) ? "#9333ea" : "#7c3aed",
+            borderRadius: 12,
+            marginTop: 12,
+            shadowColor: "#7c3aed",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: loading || (!content.trim() && !imageUri) ? 0 : 0.3,
+            shadowRadius: 8,
+            elevation: loading || (!content.trim() && !imageUri) ? 0 : 4,
+            opacity: loading || (!content.trim() && !imageUri) ? 0.6 : 1,
+          }}
+          activeOpacity={0.85}
+        >
+          {loading ? (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <Text
+                style={{
+                  color: "#FFFFFF",
+                  textAlign: "center",
+                  fontSize: 16,
+                  fontWeight: "600",
+                }}
+              >
+                Publishing...
+              </Text>
+            </View>
+          ) : (
+            <Text
+              style={{
+                color: "#FFFFFF",
+                textAlign: "center",
+                fontSize: 16,
+                fontWeight: "600",
+                letterSpacing: 0.3,
+              }}
+            >
+              Publish Post
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }

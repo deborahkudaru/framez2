@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,13 +7,15 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from "react-native";
 import dayjs from "dayjs";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import { fetchMyPosts } from "../services/postService";
 import { Post, Profile } from "../types";
-import { useTheme } from "../context/ThemeContext"; // 💜 use global theme
+import { useTheme } from "../context/ThemeContext";
+import { useFocusEffect } from "@react-navigation/native"; 
 
 async function deletePost(postId: string, userId: string) {
   try {
@@ -38,7 +40,7 @@ async function deletePost(postId: string, userId: string) {
 
     return true;
   } catch (err) {
-    console.error("❌ Delete error:", err);
+    console.error("Delete error:", err);
     throw err;
   }
 }
@@ -48,13 +50,15 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const { colors } = useTheme(); // 💜 pull colors from theme
+  const [refreshing, setRefreshing] = useState(false);
+  const { colors } = useTheme();
 
   const loadProfileAndPosts = async () => {
     if (!user) return;
     try {
       setLoading(true);
 
+      // fetch user profile
       const { data: profileData } = await supabase
         .from("profiles")
         .select("*")
@@ -62,18 +66,49 @@ export default function ProfileScreen() {
         .single();
       setProfile(profileData);
 
+      // fetch user posts
       const userPosts = await fetchMyPosts(user.id);
-      setPosts(userPosts);
+      setPosts(userPosts || []);
     } catch (e) {
       console.error("❌ error loading profile:", e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    loadProfileAndPosts();
+  // 💜 Fetch again when screen is focused (so new posts show immediately)
+  useFocusEffect(
+    useCallback(() => {
+      loadProfileAndPosts();
+    }, [user?.id])
+  );
+
+   useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel("profile-posts")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "posts" },
+        (payload: any) => { // 👈 add :any here
+          const newData = payload.new || {};
+          const oldData = payload.old || {};
+
+          // only reload if post belongs to current user
+          if (newData.user_id === user.id || oldData.user_id === user.id) {
+            loadProfileAndPosts();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user?.id]);
+
 
   if (loading) {
     return (
@@ -98,6 +133,17 @@ export default function ProfileScreen() {
       data={posts}
       keyExtractor={(item) => item.id}
       style={{ flex: 1, backgroundColor: colors.background }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => {
+            setRefreshing(true);
+            loadProfileAndPosts();
+          }}
+          tintColor={colors.tint}
+          colors={[colors.tint]}
+        />
+      }
       ListHeaderComponent={
         <View>
           {/* Profile Header Section */}
@@ -111,11 +157,13 @@ export default function ProfileScreen() {
               borderBottomColor: colors.border,
             }}
           >
-            {/* Header with Avatar and Info */}
             <View
-              style={{ flexDirection: "row", alignItems: "center", marginBottom: 24 }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                marginBottom: 24,
+              }}
             >
-              {/* Smaller Avatar */}
               <View
                 style={{
                   width: 56,
@@ -134,7 +182,6 @@ export default function ProfileScreen() {
                 </Text>
               </View>
 
-              {/* Profile Info */}
               <View style={{ flex: 1 }}>
                 <Text
                   style={{
@@ -152,7 +199,7 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            {/* Stats Row */}
+            {/* Stats */}
             <View
               style={{
                 flexDirection: "row",
@@ -217,7 +264,7 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            {/* Logout Button */}
+            {/* Logout */}
             <TouchableOpacity
               onPress={signOut}
               style={{
@@ -242,7 +289,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* My Posts Section Header */}
+          {/* My Posts Header */}
           <View
             style={{
               paddingHorizontal: 24,
@@ -264,7 +311,9 @@ export default function ProfileScreen() {
             <Text style={{ fontSize: 14, color: colors.subtext }}>
               {posts.length === 0
                 ? "No posts yet"
-                : `${posts.length} ${posts.length === 1 ? "post" : "posts"} published`}
+                : `${posts.length} ${
+                    posts.length === 1 ? "post" : "posts"
+                  } published`}
             </Text>
           </View>
         </View>
@@ -282,7 +331,7 @@ export default function ProfileScreen() {
             borderColor: colors.border,
           }}
         >
-          {/* Post Header */}
+          {/* Header */}
           <View
             style={{
               padding: 16,
@@ -293,16 +342,17 @@ export default function ProfileScreen() {
               alignItems: "center",
             }}
           >
-            <Text style={{ fontSize: 13, color: colors.subtext, fontWeight: "500" }}>
+            <Text
+              style={{ fontSize: 13, color: colors.subtext, fontWeight: "500" }}
+            >
               {dayjs(item.created_at).format("MMM D, YYYY")}
             </Text>
 
-            {/* Delete Button */}
             <TouchableOpacity
               onPress={() => {
                 Alert.alert(
                   "Delete Post",
-                  "Are you sure you want to delete this post? This action cannot be undone.",
+                  "Are you sure you want to delete this post?",
                   [
                     { text: "Cancel", style: "cancel" },
                     {
@@ -312,10 +362,15 @@ export default function ProfileScreen() {
                         try {
                           if (!user?.id) return;
                           await deletePost(item.id, user.id);
-                          setPosts((prev) => prev.filter((p) => p.id !== item.id));
+                          setPosts((prev) =>
+                            prev.filter((p) => p.id !== item.id)
+                          );
                           Alert.alert("Success", "Post deleted successfully");
                         } catch (err: any) {
-                          Alert.alert("Error", err.message || "Could not delete post.");
+                          Alert.alert(
+                            "Error",
+                            err.message || "Could not delete post."
+                          );
                         }
                       },
                     },
@@ -344,7 +399,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Post Content */}
+          {/* Content */}
           {item.content ? (
             <View
               style={{
@@ -359,7 +414,7 @@ export default function ProfileScreen() {
             </View>
           ) : null}
 
-          {/* Post Image */}
+          {/* Image */}
           {item.image_url ? (
             <Image
               source={{ uri: item.image_url }}

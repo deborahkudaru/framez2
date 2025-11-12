@@ -2,7 +2,12 @@ import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { View, ActivityIndicator, Platform } from "react-native";
+import {
+  View,
+  Text,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import LoginScreen from "../screens/auth/LoginScreen";
 import RegisterScreen from "../screens/auth/RegisterScreen";
@@ -10,6 +15,7 @@ import FeedScreen from "../screens/FeedScreen";
 import CreatePostScreen from "../screens/CreatPostScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext"; // 👈 use your theme context
 
 const Stack = createNativeStackNavigator();
 const Tabs = createBottomTabNavigator();
@@ -49,12 +55,11 @@ function AppTabs() {
             iconName = focused ? "home" : "home-outline";
           } else if (route.name === "Create") {
             iconName = focused ? "add-circle" : "add-circle-outline";
-            iconSize = size + 8; // Make create button larger
+            iconSize = size + 8;
           } else if (route.name === "Profile") {
             iconName = focused ? "person" : "person-outline";
           }
 
-          // Special styling for Create button
           if (route.name === "Create") {
             return (
               <View
@@ -86,34 +91,18 @@ function AppTabs() {
         },
       })}
     >
-      <Tabs.Screen 
-        name="Feed" 
-        component={FeedScreen}
-        options={{
-          tabBarLabel: "Home",
-        }}
-      />
-      <Tabs.Screen 
-        name="Create" 
-        component={CreatePostScreen}
-        options={{
-          tabBarLabel: "Create",
-        }}
-      />
-      <Tabs.Screen 
-        name="Profile" 
-        component={ProfileScreen}
-        options={{
-          tabBarLabel: "Profile",
-        }}
-      />
+      <Tabs.Screen name="Feed" component={FeedScreen} options={{ tabBarLabel: "Home" }} />
+      <Tabs.Screen name="Create" component={CreatePostScreen} options={{ tabBarLabel: "Create" }} />
+      <Tabs.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: "Profile" }} />
     </Tabs.Navigator>
   );
 }
 
 export default function RootNavigator() {
   const { user, loading } = useAuth();
+  const { colors } = useTheme();
 
+  // 💜 Splash screen while app/auth is loading
   if (loading) {
     return (
       <View
@@ -121,10 +110,21 @@ export default function RootNavigator() {
           flex: 1,
           justifyContent: "center",
           alignItems: "center",
-          backgroundColor: "#FFFFFF",
+          backgroundColor: colors.background,
         }}
       >
-        <ActivityIndicator size="large" color="#7c3aed" />
+        <Text
+          style={{
+            fontSize: 40,
+            fontWeight: "800",
+            color: colors.tint, // purple
+            letterSpacing: 1,
+            marginBottom: 16,
+          }}
+        >
+          Framez
+        </Text>
+        <ActivityIndicator size="large" color={colors.tint} />
       </View>
     );
   }

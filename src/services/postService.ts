@@ -53,3 +53,15 @@ export async function fetchMyPosts(userId: string): Promise<Post[]> {
   if (error) throw error;
   return data as unknown as Post[];
 }
+
+export async function deletePost(postId: string, userId: string) {
+  console.log("🗑️ Deleting post:", postId, "for user:", userId);
+
+  const { error } = await supabase
+    .from("posts")
+    .delete()
+    .eq("id", postId)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+}

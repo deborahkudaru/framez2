@@ -14,12 +14,15 @@ import { useAuth } from "../context/AuthContext";
 import { createPost } from "../services/postService";
 import { uploadImageAsync } from "../utils/upload";
 import { supabase } from "../lib/supabase";
+import { useThemeColors } from "../hooks/useThemeColor";
 
 export default function CreatePostScreen() {
   const { user } = useAuth();
   const [content, setContent] = useState("");
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const colors = useThemeColors();
+
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();

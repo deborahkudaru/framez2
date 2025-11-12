@@ -13,8 +13,8 @@ import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import { fetchMyPosts } from "../services/postService";
 import { Post, Profile } from "../types";
+import { useThemeColors } from "../hooks/useThemeColor";
 
-// 🧹 Delete logic (with image cleanup)
 async function deletePost(postId: string, userId: string) {
   try {
     // fetch image URL first
@@ -51,6 +51,8 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const colors = useThemeColors();
+
 
   const loadProfileAndPosts = async () => {
     if (!user) return;

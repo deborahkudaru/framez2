@@ -7,12 +7,16 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
+  StatusBar,
+  Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { toggleLike, fetchLikesForPosts } from "../services/postService";
+import { useColorScheme } from "react-native";
 
 dayjs.extend(relativeTime);
 
@@ -22,20 +26,33 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [likedPosts, setLikedPosts] = useState<string[]>([]);
+  const [likeCounts, setLikeCounts] = useState<{ [key: string]: number }>({});
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
 
-  // 🩵 fetch posts
+  const colors = {
+    background: isDark ? "#000" : "#f9fafb",
+    card: isDark ? "#111827" : "#FFFFFF",
+    text: isDark ? "#f9fafb" : "#1a1a1a",
+    subtext: isDark ? "#9ca3af" : "#6b7280",
+    border: isDark ? "#27272a" : "#e5e7eb",
+    tint: "#7c3aed",
+  };
+
+  // Fetch posts + likes
   const fetchPosts = async () => {
     setRefreshing(true);
-
     const { data, error } = await supabase
       .from("posts")
-      .select(`id, content, image_url, created_at, user_id, profiles(full_name)`)
+      .select(
+        `id, content, image_url, created_at, user_id, profiles(full_name)`
+      )
       .order("created_at", { ascending: false });
 
     if (error) console.error("❌ fetch error:", error);
     else setPosts(data || []);
 
-    // load likes for current user
+    // Fetch likes for user
     if (user?.id) {
       try {
         const likes = await fetchLikesForPosts(user.id);
@@ -45,6 +62,17 @@ export default function FeedScreen() {
       }
     }
 
+    // Fetch like counts
+    const counts: any = {};
+    for (const post of data || []) {
+      const { count } = await supabase
+        .from("likes")
+        .select("*", { count: "exact", head: true })
+        .eq("post_id", post.id);
+      counts[post.id] = count || 0;
+    }
+    setLikeCounts(counts);
+
     setRefreshing(false);
     setLoading(false);
   };
@@ -53,42 +81,68 @@ export default function FeedScreen() {
     fetchPosts();
   }, []);
 
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime-posts")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "posts" },
+        (payload) => {
+          console.log("🔄 Realtime change:", payload);
+          fetchPosts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   if (loading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#FFFFFF",
-        }}
-      >
-        <ActivityIndicator size="large" color="#7c3aed" />
-        <Text style={{ marginTop: 12, fontSize: 15, color: "#6b7280" }}>
-          Loading feed...
-        </Text>
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: colors.background,
+          }}
+        >
+          <ActivityIndicator size="large" color={colors.tint} />
+          <Text style={{ marginTop: 12, fontSize: 15, color: colors.subtext }}>
+            Loading feed...
+          </Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#f9fafb" }}>
-      {/* Fixed Header */}
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar
+        barStyle={isDark ? "light-content" : "dark-content"}
+        backgroundColor={colors.card}
+      />
+
+      {/* Header */}
       <View
         style={{
           paddingHorizontal: 24,
-          paddingTop: 20,
+          paddingTop: Platform.OS === "android" ? 10 : 0,
           paddingBottom: 16,
-          backgroundColor: "#FFFFFF",
+          backgroundColor: colors.card,
           borderBottomWidth: 1,
-          borderBottomColor: "#e5e7eb",
+          borderBottomColor: colors.border,
         }}
       >
         <Text
           style={{
             fontSize: 28,
             fontWeight: "700",
-            color: "#1a1a1a",
+            color: colors.text,
             textAlign: "center",
           }}
         >
@@ -96,7 +150,7 @@ export default function FeedScreen() {
         </Text>
       </View>
 
-      {/* Scrollable Feed */}
+      {/* Feed */}
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id}
@@ -105,27 +159,25 @@ export default function FeedScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={fetchPosts}
-            tintColor="#7c3aed"
-            colors={["#7c3aed"]}
+            tintColor={colors.tint}
+            colors={[colors.tint]}
           />
         }
         contentContainerStyle={{ paddingTop: 16, paddingBottom: 32 }}
         renderItem={({ item }) => {
           const isLiked = likedPosts.includes(item.id);
+          const count = likeCounts[item.id] || 0;
 
           return (
             <View
               style={{
-                backgroundColor: "#FFFFFF",
+                backgroundColor: colors.card,
                 borderRadius: 16,
                 marginHorizontal: 16,
                 marginBottom: 16,
                 overflow: "hidden",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.06,
-                shadowRadius: 4,
-                elevation: 2,
+                borderWidth: 1,
+                borderColor: colors.border,
               }}
             >
               {/* Post Header */}
@@ -135,40 +187,48 @@ export default function FeedScreen() {
                   flexDirection: "row",
                   alignItems: "center",
                   borderBottomWidth: item.content || item.image_url ? 1 : 0,
-                  borderBottomColor: "#f3f4f6",
+                  borderBottomColor: colors.border,
                 }}
               >
-                {/* Avatar */}
                 <View
                   style={{
                     width: 40,
                     height: 40,
                     borderRadius: 20,
-                    backgroundColor: "#7c3aed",
+                    backgroundColor: colors.tint,
                     justifyContent: "center",
                     alignItems: "center",
                     marginRight: 12,
                   }}
                 >
                   <Text
-                    style={{ fontSize: 16, fontWeight: "600", color: "#FFFFFF" }}
+                    style={{
+                      fontSize: 16,
+                      fontWeight: "600",
+                      color: "#FFFFFF",
+                    }}
                   >
                     {item.profiles?.full_name?.charAt(0).toUpperCase() || "U"}
                   </Text>
                 </View>
 
-                {/* User Info & Timestamp */}
                 <View style={{ flex: 1 }}>
                   <Text
                     style={{
                       fontSize: 15,
                       fontWeight: "600",
-                      color: "#1a1a1a",
+                      color: colors.text,
                     }}
                   >
                     {item.profiles?.full_name || "Anonymous"}
                   </Text>
-                  <Text style={{ fontSize: 13, color: "#9ca3af", marginTop: 2 }}>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: colors.subtext,
+                      marginTop: 2,
+                    }}
+                  >
                     {dayjs(item.created_at).fromNow()}
                   </Text>
                 </View>
@@ -186,7 +246,7 @@ export default function FeedScreen() {
                   <Text
                     style={{
                       fontSize: 15,
-                      color: "#1a1a1a",
+                      color: colors.text,
                       lineHeight: 22,
                     }}
                   >
@@ -202,102 +262,77 @@ export default function FeedScreen() {
                   style={{
                     width: "100%",
                     height: 320,
-                    backgroundColor: "#f3f4f6",
+                    backgroundColor: colors.border,
                   }}
                   resizeMode="cover"
                 />
               ) : null}
 
-              {/* Post Footer */}
+              {/* Footer */}
               <View
                 style={{
                   paddingHorizontal: 16,
                   paddingVertical: 12,
                   borderTopWidth: 1,
-                  borderTopColor: "#f3f4f6",
+                  borderTopColor: colors.border,
                   flexDirection: "row",
                   justifyContent: "space-between",
                   alignItems: "center",
                 }}
               >
-                <Text style={{ fontSize: 12, color: "#9ca3af" }}>
+                <Text style={{ fontSize: 12, color: colors.subtext }}>
                   {dayjs(item.created_at).format("MMM D, YYYY • h:mm A")}
                 </Text>
 
-                {/* ❤️ Like Button */}
-                <TouchableOpacity
-                  onPress={async () => {
-                    if (!user?.id) return;
-                    try {
-                      await toggleLike(item.id, user.id, isLiked);
-                      setLikedPosts((prev) =>
-                        isLiked
-                          ? prev.filter((id) => id !== item.id)
-                          : [...prev, item.id]
-                      );
-                    } catch (err) {
-                      console.error("❌ Like error:", err);
-                    }
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 20,
-                      color: isLiked ? "#ef4444" : "#9ca3af",
-                      fontWeight: "700",
+                {/* Like Section */}
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      if (!user?.id) return;
+                      try {
+                        await toggleLike(item.id, user.id, isLiked);
+                        setLikedPosts((prev) =>
+                          isLiked
+                            ? prev.filter((id) => id !== item.id)
+                            : [...prev, item.id]
+                        );
+                        setLikeCounts((prev) => ({
+                          ...prev,
+                          [item.id]: isLiked
+                            ? Math.max(0, (prev[item.id] || 1) - 1)
+                            : (prev[item.id] || 0) + 1,
+                        }));
+                      } catch (err) {
+                        console.error("❌ Like error:", err);
+                      }
                     }}
                   >
-                    {isLiked ? "♥" : "♡"}
+                    <Text
+                      style={{
+                        fontSize: 20,
+                        color: isLiked ? "#ef4444" : colors.subtext,
+                        fontWeight: "700",
+                      }}
+                    >
+                      {isLiked ? "♥" : "♡"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: colors.subtext,
+                      marginLeft: 8,
+                    }}
+                  >
+                    {count} {count === 1 ? "like" : "likes"}
                   </Text>
-                </TouchableOpacity>
+                </View>
               </View>
             </View>
           );
         }}
-        ListEmptyComponent={
-          <View
-            style={{
-              alignItems: "center",
-              paddingVertical: 64,
-              paddingHorizontal: 24,
-            }}
-          >
-            <View
-              style={{
-                width: 80,
-                height: 80,
-                borderRadius: 40,
-                backgroundColor: "#f3f4f6",
-                justifyContent: "center",
-                alignItems: "center",
-                marginBottom: 20,
-              }}
-            >
-              <Text style={{ fontSize: 36 }}>📱</Text>
-            </View>
-            <Text
-              style={{
-                fontSize: 20,
-                fontWeight: "700",
-                color: "#1a1a1a",
-                marginBottom: 8,
-              }}
-            >
-              No posts yet
-            </Text>
-            <Text
-              style={{
-                fontSize: 15,
-                color: "#6b7280",
-                textAlign: "center",
-                lineHeight: 22,
-              }}
-            >
-              Be the first to share something{"\n"}with the Framez community
-            </Text>
-          </View>
-        }
       />
-    </View>
+    </SafeAreaView>
   );
 }

@@ -8,6 +8,8 @@ import {
 } from "react-native";
 import { useAuth } from "../../context/AuthContext";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useThemeColors } from "../../hooks/useThemeColor";
+
 
 export default function LoginScreen({
   navigation,
@@ -17,6 +19,7 @@ export default function LoginScreen({
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+ const colors = useThemeColors();
 
   const onLogin = async () => {
     setLoading(true);

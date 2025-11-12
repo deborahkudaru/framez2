@@ -95,3 +95,12 @@ export async function fetchLikesForPosts(userId: string) {
   if (error) throw error;
   return data;
 }
+
+export async function fetchLikeCount(postId: string) {
+  const { count, error } = await supabase
+    .from("likes")
+    .select("*", { count: "exact", head: true })
+    .eq("post_id", postId);
+  if (error) throw error;
+  return count || 0;
+}

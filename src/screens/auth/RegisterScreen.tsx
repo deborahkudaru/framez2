@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, TextInput, Text, TouchableOpacity } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { useThemeColors } from '../../hooks/useThemeColor';
+
 
 export default function RegisterScreen({ navigation }: any) {
   const { signUp } = useAuth();
@@ -10,6 +12,8 @@ export default function RegisterScreen({ navigation }: any) {
   const [fullName, setFullName] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const colors = useThemeColors();
+
 
   const onRegister = async () => {
     setLoading(true);

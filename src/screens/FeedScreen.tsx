@@ -16,28 +16,18 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { toggleLike, fetchLikesForPosts } from "../services/postService";
-import { useColorScheme } from "react-native";
+import { useTheme } from "../context/ThemeContext";
 
 dayjs.extend(relativeTime);
 
 export default function FeedScreen() {
   const { user } = useAuth();
+  const { colors, isDark } = useTheme(); // 💜 Use global theme
   const [posts, setPosts] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [likedPosts, setLikedPosts] = useState<string[]>([]);
   const [likeCounts, setLikeCounts] = useState<{ [key: string]: number }>({});
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-
-  const colors = {
-    background: isDark ? "#000" : "#f9fafb",
-    card: isDark ? "#111827" : "#FFFFFF",
-    text: isDark ? "#f9fafb" : "#1a1a1a",
-    subtext: isDark ? "#9ca3af" : "#6b7280",
-    border: isDark ? "#27272a" : "#e5e7eb",
-    tint: "#7c3aed",
-  };
 
   // Fetch posts + likes
   const fetchPosts = async () => {
@@ -123,7 +113,7 @@ export default function FeedScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar
-        barStyle={isDark ? "light-content" : "dark-content"}
+        barStyle={colors.statusBarStyle}
         backgroundColor={colors.card}
       />
 

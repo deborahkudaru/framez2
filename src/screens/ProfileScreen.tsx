@@ -13,18 +13,16 @@ import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import { fetchMyPosts } from "../services/postService";
 import { Post, Profile } from "../types";
-import { useThemeColors } from "../hooks/useThemeColor";
+import { useTheme } from "../context/ThemeContext"; // 💜 use global theme
 
 async function deletePost(postId: string, userId: string) {
   try {
-    // fetch image URL first
     const { data: post } = await supabase
       .from("posts")
       .select("image_url")
       .eq("id", postId)
       .single();
 
-    // delete post record
     const { error } = await supabase
       .from("posts")
       .delete()
@@ -33,7 +31,6 @@ async function deletePost(postId: string, userId: string) {
 
     if (error) throw error;
 
-    // if there's an image, delete from storage
     if (post?.image_url) {
       const path = post.image_url.split("/storage/v1/object/public/images/")[1];
       await supabase.storage.from("images").remove([path]);
@@ -51,15 +48,13 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const colors = useThemeColors();
-
+  const { colors } = useTheme(); // 💜 pull colors from theme
 
   const loadProfileAndPosts = async () => {
     if (!user) return;
     try {
       setLoading(true);
 
-      // get profile
       const { data: profileData } = await supabase
         .from("profiles")
         .select("*")
@@ -67,7 +62,6 @@ export default function ProfileScreen() {
         .single();
       setProfile(profileData);
 
-      // get user's posts
       const userPosts = await fetchMyPosts(user.id);
       setPosts(userPosts);
     } catch (e) {
@@ -88,11 +82,11 @@ export default function ProfileScreen() {
           flex: 1,
           justifyContent: "center",
           alignItems: "center",
-          backgroundColor: "#FFFFFF",
+          backgroundColor: colors.background,
         }}
       >
-        <ActivityIndicator size="large" color="#7c3aed" />
-        <Text style={{ marginTop: 12, fontSize: 15, color: "#6b7280" }}>
+        <ActivityIndicator size="large" color={colors.tint} />
+        <Text style={{ marginTop: 12, fontSize: 15, color: colors.subtext }}>
           Loading profile...
         </Text>
       </View>
@@ -103,29 +97,31 @@ export default function ProfileScreen() {
     <FlatList
       data={posts}
       keyExtractor={(item) => item.id}
-      style={{ flex: 1, backgroundColor: "#f9fafb" }}
+      style={{ flex: 1, backgroundColor: colors.background }}
       ListHeaderComponent={
         <View>
           {/* Profile Header Section */}
           <View
             style={{
-              backgroundColor: "#FFFFFF",
+              backgroundColor: colors.card,
               paddingTop: 60,
               paddingBottom: 32,
               paddingHorizontal: 24,
               borderBottomWidth: 1,
-              borderBottomColor: "#e5e7eb",
+              borderBottomColor: colors.border,
             }}
           >
             {/* Header with Avatar and Info */}
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 24 }}>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", marginBottom: 24 }}
+            >
               {/* Smaller Avatar */}
               <View
                 style={{
                   width: 56,
                   height: 56,
                   borderRadius: 28,
-                  backgroundColor: "#7c3aed",
+                  backgroundColor: colors.tint,
                   justifyContent: "center",
                   alignItems: "center",
                   marginRight: 16,
@@ -144,18 +140,13 @@ export default function ProfileScreen() {
                   style={{
                     fontSize: 22,
                     fontWeight: "700",
-                    color: "#1a1a1a",
+                    color: colors.text,
                     marginBottom: 4,
                   }}
                 >
                   {profile?.full_name || "User"}
                 </Text>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    color: "#6b7280",
-                  }}
-                >
+                <Text style={{ fontSize: 14, color: colors.subtext }}>
                   {profile?.email}
                 </Text>
               </View>
@@ -165,12 +156,12 @@ export default function ProfileScreen() {
             <View
               style={{
                 flexDirection: "row",
-                backgroundColor: "#f9fafb",
+                backgroundColor: colors.background,
                 borderRadius: 12,
                 padding: 20,
                 marginBottom: 20,
                 borderWidth: 1,
-                borderColor: "#e5e7eb",
+                borderColor: colors.border,
               }}
             >
               <View style={{ flex: 1 }}>
@@ -178,7 +169,7 @@ export default function ProfileScreen() {
                   style={{
                     fontSize: 24,
                     fontWeight: "700",
-                    color: "#1a1a1a",
+                    color: colors.text,
                     marginBottom: 4,
                   }}
                 >
@@ -187,22 +178,28 @@ export default function ProfileScreen() {
                 <Text
                   style={{
                     fontSize: 13,
-                    color: "#6b7280",
+                    color: colors.subtext,
                     fontWeight: "500",
                   }}
                 >
                   Total Posts
                 </Text>
               </View>
-              
-              <View style={{ width: 1, backgroundColor: "#e5e7eb", marginHorizontal: 20 }} />
-              
+
+              <View
+                style={{
+                  width: 1,
+                  backgroundColor: colors.border,
+                  marginHorizontal: 20,
+                }}
+              />
+
               <View style={{ flex: 1 }}>
                 <Text
                   style={{
                     fontSize: 24,
                     fontWeight: "700",
-                    color: "#1a1a1a",
+                    color: colors.text,
                     marginBottom: 4,
                   }}
                 >
@@ -211,7 +208,7 @@ export default function ProfileScreen() {
                 <Text
                   style={{
                     fontSize: 13,
-                    color: "#6b7280",
+                    color: colors.subtext,
                     fontWeight: "500",
                   }}
                 >
@@ -225,17 +222,17 @@ export default function ProfileScreen() {
               onPress={signOut}
               style={{
                 borderWidth: 1.5,
-                borderColor: "#e5e7eb",
+                borderColor: colors.border,
                 padding: 16,
                 borderRadius: 12,
-                backgroundColor: "#FFFFFF",
+                backgroundColor: colors.card,
               }}
               activeOpacity={0.7}
             >
               <Text
                 style={{
                   textAlign: "center",
-                  color: "#6b7280",
+                  color: colors.subtext,
                   fontWeight: "600",
                   fontSize: 15,
                 }}
@@ -251,18 +248,20 @@ export default function ProfileScreen() {
               paddingHorizontal: 24,
               paddingTop: 32,
               paddingBottom: 16,
-              backgroundColor: "#f9fafb",
+              backgroundColor: colors.background,
             }}
           >
-            <Text style={{ fontSize: 20, fontWeight: "700", color: "#1a1a1a", marginBottom: 4 }}>
-              My Posts
-            </Text>
             <Text
               style={{
-                fontSize: 14,
-                color: "#6b7280",
+                fontSize: 20,
+                fontWeight: "700",
+                color: colors.text,
+                marginBottom: 4,
               }}
             >
+              My Posts
+            </Text>
+            <Text style={{ fontSize: 14, color: colors.subtext }}>
               {posts.length === 0
                 ? "No posts yet"
                 : `${posts.length} ${posts.length === 1 ? "post" : "posts"} published`}
@@ -274,16 +273,13 @@ export default function ProfileScreen() {
       renderItem={({ item }) => (
         <View
           style={{
-            backgroundColor: "#FFFFFF",
+            backgroundColor: colors.card,
             borderRadius: 16,
             marginHorizontal: 16,
             marginBottom: 16,
             overflow: "hidden",
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.06,
-            shadowRadius: 4,
-            elevation: 2,
+            borderWidth: 1,
+            borderColor: colors.border,
           }}
         >
           {/* Post Header */}
@@ -291,13 +287,13 @@ export default function ProfileScreen() {
             style={{
               padding: 16,
               borderBottomWidth: item.content || item.image_url ? 1 : 0,
-              borderBottomColor: "#f3f4f6",
+              borderBottomColor: colors.border,
               flexDirection: "row",
               justifyContent: "space-between",
               alignItems: "center",
             }}
           >
-            <Text style={{ fontSize: 13, color: "#9ca3af", fontWeight: "500" }}>
+            <Text style={{ fontSize: 13, color: colors.subtext, fontWeight: "500" }}>
               {dayjs(item.created_at).format("MMM D, YYYY")}
             </Text>
 
@@ -316,16 +312,10 @@ export default function ProfileScreen() {
                         try {
                           if (!user?.id) return;
                           await deletePost(item.id, user.id);
-
-                          setPosts((prev) =>
-                            prev.filter((p) => p.id !== item.id)
-                          );
+                          setPosts((prev) => prev.filter((p) => p.id !== item.id));
                           Alert.alert("Success", "Post deleted successfully");
                         } catch (err: any) {
-                          Alert.alert(
-                            "Error",
-                            err.message || "Could not delete post."
-                          );
+                          Alert.alert("Error", err.message || "Could not delete post.");
                         }
                       },
                     },
@@ -337,8 +327,8 @@ export default function ProfileScreen() {
                 paddingVertical: 6,
                 borderRadius: 8,
                 borderWidth: 1,
-                borderColor: "#fecaca",
-                backgroundColor: "#fef2f2",
+                borderColor: "#fca5a5",
+                backgroundColor: "#fee2e2",
               }}
               activeOpacity={0.7}
             >
@@ -363,7 +353,7 @@ export default function ProfileScreen() {
                 paddingBottom: item.image_url ? 12 : 16,
               }}
             >
-              <Text style={{ fontSize: 15, color: "#1a1a1a", lineHeight: 22 }}>
+              <Text style={{ fontSize: 15, color: colors.text, lineHeight: 22 }}>
                 {item.content}
               </Text>
             </View>
@@ -376,7 +366,7 @@ export default function ProfileScreen() {
               style={{
                 width: "100%",
                 height: 300,
-                backgroundColor: "#f3f4f6",
+                backgroundColor: colors.border,
               }}
               resizeMode="cover"
             />
@@ -396,7 +386,7 @@ export default function ProfileScreen() {
               width: 80,
               height: 80,
               borderRadius: 40,
-              backgroundColor: "#f3f4f6",
+              backgroundColor: colors.border,
               justifyContent: "center",
               alignItems: "center",
               marginBottom: 20,
@@ -408,7 +398,7 @@ export default function ProfileScreen() {
             style={{
               fontSize: 20,
               fontWeight: "700",
-              color: "#1a1a1a",
+              color: colors.text,
               marginBottom: 8,
             }}
           >
@@ -417,7 +407,7 @@ export default function ProfileScreen() {
           <Text
             style={{
               fontSize: 15,
-              color: "#6b7280",
+              color: colors.subtext,
               textAlign: "center",
               lineHeight: 22,
             }}

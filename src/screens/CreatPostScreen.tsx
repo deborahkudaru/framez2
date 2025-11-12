@@ -14,15 +14,14 @@ import { useAuth } from "../context/AuthContext";
 import { createPost } from "../services/postService";
 import { uploadImageAsync } from "../utils/upload";
 import { supabase } from "../lib/supabase";
-import { useThemeColors } from "../hooks/useThemeColor";
+import { useTheme } from "../context/ThemeContext"; // 💜 use global theme
 
 export default function CreatePostScreen() {
   const { user } = useAuth();
   const [content, setContent] = useState("");
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const colors = useThemeColors();
-
+  const { colors } = useTheme(); // 💜 theme hook
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -36,7 +35,7 @@ export default function CreatePostScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.8,
       allowsEditing: true,
       aspect: [4, 3],
@@ -65,24 +64,17 @@ export default function CreatePostScreen() {
     setLoading(true);
 
     try {
-      // get the currently authenticated user from supabase directly
       const { data: authData } = await supabase.auth.getUser();
       const loggedInUser = authData?.user;
-
-      console.log("👤 Logged-in user:", loggedInUser?.id);
 
       if (!loggedInUser) {
         throw new Error("No authenticated user found");
       }
 
       let imageUrl: string | null = null;
-
       if (imageUri) {
         imageUrl = await uploadImageAsync(imageUri, "posts", loggedInUser.id);
       }
-
-      const { data: authCheck } = await supabase.auth.getUser();
-      console.log("👤 Current user before insert:", authCheck?.user?.id);
 
       const result = await createPost(
         loggedInUser.id,
@@ -93,9 +85,7 @@ export default function CreatePostScreen() {
 
       setContent("");
       setImageUri(null);
-      Alert.alert("Success", "Your post has been published!", [
-        { text: "OK", style: "default" },
-      ]);
+      Alert.alert("Success", "Your post has been published!");
     } catch (e: any) {
       Alert.alert(
         "Error",
@@ -108,7 +98,7 @@ export default function CreatePostScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
+      style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{ paddingBottom: 40 }}
     >
       {/* Header */}
@@ -118,25 +108,33 @@ export default function CreatePostScreen() {
           paddingTop: 60,
           paddingBottom: 24,
           borderBottomWidth: 1,
-          borderBottomColor: "#e5e7eb",
+          borderBottomColor: colors.border,
+          backgroundColor: colors.card,
         }}
       >
-        <Text style={{ fontSize: 28, fontWeight: "700", color: "#1a1a1a" }}>
+        <Text
+          style={{
+            fontSize: 28,
+            fontWeight: "700",
+            color: colors.text,
+          }}
+        >
           Create Post
         </Text>
-        <Text style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>
+        <Text style={{ fontSize: 14, color: colors.subtext, marginTop: 4 }}>
           Share your moment with the community
         </Text>
       </View>
 
+      {/* Main Content */}
       <View style={{ paddingHorizontal: 24, paddingTop: 32, gap: 24 }}>
-        {/* Text Input Section */}
+        {/* Text Input */}
         <View>
           <Text
             style={{
               fontSize: 14,
               fontWeight: "600",
-              color: "#374151",
+              color: colors.text,
               marginBottom: 10,
             }}
           >
@@ -144,23 +142,23 @@ export default function CreatePostScreen() {
           </Text>
           <TextInput
             placeholder="Share your thoughts..."
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.subtext}
             value={content}
             onChangeText={setContent}
             multiline
             textAlignVertical="top"
             style={{
               borderWidth: 1.5,
-              borderColor: "#e5e7eb",
+              borderColor: colors.border,
               borderRadius: 12,
               padding: 16,
               minHeight: 160,
               fontSize: 15,
-              color: "#1a1a1a",
-              backgroundColor: "#FFFFFF",
+              color: colors.text,
+              backgroundColor: colors.card,
             }}
           />
-          <Text style={{ fontSize: 12, color: "#9ca3af", marginTop: 8 }}>
+          <Text style={{ fontSize: 12, color: colors.subtext, marginTop: 8 }}>
             {content.length} characters
           </Text>
         </View>
@@ -172,7 +170,7 @@ export default function CreatePostScreen() {
               style={{
                 fontSize: 14,
                 fontWeight: "600",
-                color: "#374151",
+                color: colors.text,
                 marginBottom: 10,
               }}
             >
@@ -183,7 +181,7 @@ export default function CreatePostScreen() {
                 borderRadius: 12,
                 overflow: "hidden",
                 borderWidth: 1.5,
-                borderColor: "#e5e7eb",
+                borderColor: colors.border,
               }}
             >
               <Image
@@ -191,7 +189,7 @@ export default function CreatePostScreen() {
                 style={{
                   width: "100%",
                   height: 300,
-                  backgroundColor: "#f3f4f6",
+                  backgroundColor: colors.border,
                 }}
                 resizeMode="cover"
               />
@@ -202,7 +200,7 @@ export default function CreatePostScreen() {
                   position: "absolute",
                   top: 12,
                   right: 12,
-                  backgroundColor: "rgba(0, 0, 0, 0.7)",
+                  backgroundColor: "rgba(0,0,0,0.7)",
                   borderRadius: 20,
                   width: 36,
                   height: 36,
@@ -221,15 +219,17 @@ export default function CreatePostScreen() {
           </View>
         ) : null}
 
-        {/* Add/Change Image Button */}
+        {/* Add Image Button */}
         <TouchableOpacity
           onPress={pickImage}
           style={{
             padding: 16,
             borderWidth: 1.5,
-            borderColor: "#7c3aed",
+            borderColor: colors.tint,
             borderRadius: 12,
-            backgroundColor: "#faf5ff",
+            backgroundColor: isDark(colors)
+              ? "rgba(124,58,237,0.1)"
+              : "#faf5ff",
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "center",
@@ -241,7 +241,7 @@ export default function CreatePostScreen() {
           <Text
             style={{
               textAlign: "center",
-              color: "#7c3aed",
+              color: colors.tint,
               fontWeight: "600",
               fontSize: 15,
             }}
@@ -256,15 +256,14 @@ export default function CreatePostScreen() {
           disabled={loading || (!content.trim() && !imageUri)}
           style={{
             padding: 18,
-            backgroundColor:
-              loading || (!content.trim() && !imageUri) ? "#9333ea" : "#7c3aed",
+            backgroundColor: colors.tint,
             borderRadius: 12,
             marginTop: 12,
-            shadowColor: "#7c3aed",
+            shadowColor: colors.tint,
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: loading || (!content.trim() && !imageUri) ? 0 : 0.3,
+            shadowOpacity: loading ? 0 : 0.3,
             shadowRadius: 8,
-            elevation: loading || (!content.trim() && !imageUri) ? 0 : 4,
+            elevation: loading ? 0 : 4,
             opacity: loading || (!content.trim() && !imageUri) ? 0.6 : 1,
           }}
           activeOpacity={0.85}
@@ -308,3 +307,6 @@ export default function CreatePostScreen() {
     </ScrollView>
   );
 }
+
+// helper to check dark mode (optional)
+const isDark = (colors: any) => colors.background === "#000";
